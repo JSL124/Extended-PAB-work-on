@@ -1,0 +1,72 @@
+{
+  "request_id": "example-urgent-001",
+  "audio_path": "examples/audio/fall_bathroom.wav",
+  "processed_audio_path": "artifacts/processed/fall_bathroom_processed.wav",
+  "audio_duration_seconds": 18.4,
+  "speech_segments": [
+    [
+      0.7,
+      6.6
+    ],
+    [
+      8.3,
+      11.9
+    ]
+  ],
+  "speaker": {
+    "speaker": "Resident_B",
+    "confidence": 0.84,
+    "similarities": {
+      "Resident_A": 0.42,
+      "Resident_B": 0.79
+    }
+  },
+  "audio_events": {
+  },
+  "audio_context": {
+    "speech_duration_seconds": 9.5,
+    "speech_ratio": 0.516,
+    "silence_ratio": 0.484,
+    "transcript_present": true,
+    "speaker_known": true,
+    "distress_cues": [
+      "incident:fall",
+      "symptom:leg pain",
+      "keyword:slipped",
+      "keyword:pain",
+      "keyword:bathroom",
+      "speech_present",
+      "speaker_identified"
+    ]
+  },
+  "transcript": {
+    "text": "I slipped in the bathroom and I cannot get up. My leg hurts.",
+    "language": "english"
+  },
+  "transcript_analysis": {
+    "incident": "fall",
+    "symptoms": [
+      "leg pain"
+    ],
+    "keywords": [
+      "slipped",
+      "pain",
+      "bathroom",
+      "floor"
+    ]
+  },
+  "false_alarm": {
+    "false_alarm": false,
+    "confidence": 0.93,
+    "reason": "emergency indicators outweigh false-alarm cues"
+  },
+  "triage": {
+    "incident": "fall",
+    "urgency": "URGENT",
+    "confidence": 0.88,
+    "recommended_action": "dispatch ambulance and call the resident immediately",
+    "rationale": "The transcript describes a fall with immobility and pain, and the audio events support acute distress."
+  },
+  "errors": [],
+  "generated_at": "2026-03-13T00:00:00+00:00"
+}

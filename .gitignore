@@ -1,0 +1,10 @@
+__pycache__/
+.pytest_cache/
+.venv/
+artifacts/
+.env
+examples/generated/
+voice_db/*.npy
+.DS_Store
+sample/
+*.pyc
