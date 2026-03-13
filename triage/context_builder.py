@@ -29,6 +29,9 @@ def build_audio_context(
     if transcript_analysis.incident != "unknown":
         distress_cues.append(f"incident:{transcript_analysis.incident}")
     distress_cues.extend(f"symptom:{symptom}" for symptom in transcript_analysis.symptoms)
+    distress_cues.extend(
+        f"normalized_symptom:{symptom}" for symptom in transcript_analysis.normalized_symptoms
+    )
     distress_cues.extend(f"keyword:{keyword}" for keyword in transcript_analysis.keywords)
     if transcript.analysis_text.strip():
         distress_cues.append("speech_present")

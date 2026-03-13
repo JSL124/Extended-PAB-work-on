@@ -40,6 +40,7 @@ class TranscriptAnalysisResult(BaseModel):
 
     incident: str = "unknown"
     symptoms: List[str] = Field(default_factory=list)
+    normalized_symptoms: List[str] = Field(default_factory=list)
     keywords: List[str] = Field(default_factory=list)
 
 

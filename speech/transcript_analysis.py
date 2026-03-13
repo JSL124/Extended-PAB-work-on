@@ -1,4 +1,4 @@
-"""Rule-based transcript signal extraction."""
+"""LLM-backed transcript analysis with deterministic symptom normalization."""
 
 from __future__ import annotations
 
@@ -74,13 +74,93 @@ KEYWORD_TERMS: tuple[str, ...] = (
     "chest",
 )
 
+CANONICAL_SYMPTOM_RULES: dict[str, tuple[str, ...]] = {
+    "chest_discomfort": (
+        r"\bheart (?:feels |is )?(?:uncomfortable|not okay|not right)\b",
+        r"\bheart discomfort\b",
+        r"\bheart problem\b",
+        r"\bchest discomfort\b",
+        r"\bchest feels uncomfortable\b",
+        r"\bchest tight(?:ness)?\b",
+        r"\bchest pressure\b",
+    ),
+    "chest_pain": (
+        r"\bchest pain\b",
+        r"\bpain in (?:my )?chest\b",
+    ),
+    "generalized_pain": (
+        r"\beverywhere hurts\b",
+        r"\bwhole body hurts\b",
+        r"\ball over pain\b",
+        r"\bbody aches?\b",
+        r"\bgeneral(?:ized)? pain\b",
+        r"\beverything hurts\b",
+        r"\bmy whole body\b",
+    ),
+    "head_pain": (
+        r"\bhead pain\b",
+        r"\bhead hurts\b",
+        r"\bheadache\b",
+        r"\bhead (?:is )?(?:uncomfortable|not right)\b",
+        r"\bpain in (?:my )?head\b",
+    ),
+    "shortness_of_breath": (
+        r"\bshortness of breath\b",
+        r"\bshort of breath\b",
+        r"\bcan'?t breathe\b",
+        r"\bbreathing problem\b",
+        r"\btrouble breathing\b",
+    ),
+    "dizziness": (
+        r"\bdizz(?:y|iness)\b",
+        r"\blightheaded(?:ness)?\b",
+        r"\bfeel faint\b",
+        r"\bfaint\b",
+    ),
+    "bleeding": (
+        r"\bbleeding\b",
+        r"\bblood\b",
+    ),
+    "leg_pain": (
+        r"\bleg pain\b",
+        r"\bleg hurts\b",
+        r"\bpain in (?:my )?leg\b",
+    ),
+    "hip_pain": (
+        r"\bhip pain\b",
+        r"\bmy hip\b",
+        r"\bpain in (?:my )?hip\b",
+    ),
+    "weakness": (
+        r"\bweak(?:ness)?\b",
+        r"\bno strength\b",
+    ),
+    "confusion": (
+        r"\bconfus(?:ed|ion)\b",
+        r"\bnot thinking clearly\b",
+        r"\bdisoriented\b",
+    ),
+}
+
 
 def _find_matches(text: str, patterns: tuple[str, ...]) -> bool:
     return any(re.search(pattern, text) for pattern in patterns)
 
 
+def normalize_symptoms(phrases: list[str], text: str = "") -> list[str]:
+    """Map free-text symptom phrases to canonical labels."""
+    normalized_labels: list[str] = []
+    candidate_texts = [value.strip().lower() for value in [*phrases, text] if value and value.strip()]
+
+    for canonical, patterns in CANONICAL_SYMPTOM_RULES.items():
+        if any(_find_matches(candidate, patterns) for candidate in candidate_texts):
+            normalized_labels.append(canonical)
+
+    return list(dict.fromkeys(normalized_labels))
+
+
 def analyze_transcript_rule_based(text: str) -> TranscriptAnalysisResult:
-    """Extract incident category, symptoms, and salient keywords from text."""
+    """Extract incident category, symptoms, salient keywords, and canonical symptoms."""
     normalized = text.lower().strip()
     if not normalized:
         return TranscriptAnalysisResult()
@@ -98,16 +178,18 @@ def analyze_transcript_rule_based(text: str) -> TranscriptAnalysisResult:
 
     keywords = [term for term in KEYWORD_TERMS if term in normalized]
     incident = incident_scores.most_common(1)[0][0] if incident_scores else "unknown"
+    canonical_symptoms = normalize_symptoms([*symptoms, *keywords], normalized)
 
     return TranscriptAnalysisResult(
         incident=incident,
         symptoms=symptoms,
+        normalized_symptoms=canonical_symptoms,
         keywords=keywords,
     )
 
 
 class TranscriptAnalyzer:
-    """LLM-first transcript analyzer with deterministic fallback."""
+    """LLM-first transcript analyzer with deterministic fallback and normalization."""
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or Settings.from_env()
@@ -127,8 +209,8 @@ class TranscriptAnalyzer:
     def analyze(self, text: str) -> TranscriptAnalysisResult:
         """Analyze transcript text, preferring LLM extraction and falling back to rules."""
         fallback = analyze_transcript_rule_based(text)
-        normalized = text.strip()
-        if not normalized or self._client is None:
+        normalized_text = text.strip()
+        if not normalized_text or self._client is None:
             return fallback
 
         try:
@@ -141,13 +223,13 @@ class TranscriptAnalyzer:
                             "You extract structured emergency-call signals from English transcript text. "
                             "Return concise JSON with incident, symptoms, and keywords only. "
                             "Use short English symptom phrases such as chest pain, head pain, generalized pain, "
-                            "shortness of breath, dizziness, bleeding, weakness, confusion. "
-                            "If the incident is unclear, set incident to 'unknown'."
+                            "shortness of breath, dizziness, bleeding, weakness, confusion, heart discomfort, "
+                            "and chest discomfort. If the incident is unclear, set incident to 'unknown'."
                         ),
                     },
                     {
                         "role": "user",
-                        "content": f"Transcript:\n{normalized}",
+                        "content": f"Transcript:\n{normalized_text}",
                     },
                 ],
                 response_format=TranscriptAnalysisResult,
@@ -159,10 +241,14 @@ class TranscriptAnalyzer:
             incident = parsed.incident if parsed.incident != "unknown" else fallback.incident
             symptoms = list(dict.fromkeys([*parsed.symptoms, *fallback.symptoms]))
             keywords = list(dict.fromkeys([*parsed.keywords, *fallback.keywords]))
+            normalized_symptoms = normalize_symptoms([*symptoms, *keywords], normalized_text)
+            if not normalized_symptoms:
+                normalized_symptoms = fallback.normalized_symptoms
 
             return TranscriptAnalysisResult(
                 incident=incident,
                 symptoms=symptoms,
+                normalized_symptoms=normalized_symptoms,
                 keywords=keywords,
             )
         except Exception as exc:

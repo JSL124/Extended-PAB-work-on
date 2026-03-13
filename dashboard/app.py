@@ -268,10 +268,18 @@ def main() -> None:
         st.subheader("Transcript Signals")
         signals_df = pd.DataFrame(
             {
-                "field": ["incident", "symptoms", "keywords", "language", "analysis_language"],
+                "field": [
+                    "incident",
+                    "symptoms",
+                    "normalized_symptoms",
+                    "keywords",
+                    "language",
+                    "analysis_language",
+                ],
                 "value": [
                     report_payload["transcript_analysis"]["incident"],
                     ", ".join(report_payload["transcript_analysis"]["symptoms"]) or "-",
+                    ", ".join(report_payload["transcript_analysis"]["normalized_symptoms"]) or "-",
                     ", ".join(report_payload["transcript_analysis"]["keywords"]) or "-",
                     transcript["language"],
                     transcript["analysis_language"],

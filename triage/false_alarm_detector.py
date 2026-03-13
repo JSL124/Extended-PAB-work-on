@@ -167,7 +167,8 @@ class FalseAlarmDetector:
         emergency_score = 0.0
         if transcript_analysis.incident != "unknown":
             emergency_score += 1.5
-        emergency_score += 0.45 * len(transcript_analysis.symptoms)
+        emergency_score += 0.25 * len(transcript_analysis.symptoms)
+        emergency_score += 0.35 * len(transcript_analysis.normalized_symptoms)
         emergency_score += 0.15 * len(transcript_analysis.keywords)
         emergency_score += 0.6 * audio_context.speech_ratio
         emergency_score += 0.12 * len(audio_context.distress_cues)
