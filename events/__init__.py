@@ -1,0 +1,2 @@
+"""Audio event detection modules."""
+

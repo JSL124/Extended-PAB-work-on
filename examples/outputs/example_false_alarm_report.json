@@ -1,0 +1,56 @@
+{
+  "request_id": "example-false-alarm-001",
+  "audio_path": "examples/audio/accidental_press.wav",
+  "processed_audio_path": "artifacts/processed/accidental_press_processed.wav",
+  "audio_duration_seconds": 14.8,
+  "speech_segments": [
+    [
+      1.1,
+      3.7
+    ]
+  ],
+  "speaker": {
+    "speaker": "Resident_A",
+    "confidence": 0.88,
+    "similarities": {
+      "Resident_A": 0.81,
+      "Resident_B": 0.47
+    }
+  },
+  "audio_events": {
+  },
+  "audio_context": {
+    "speech_duration_seconds": 2.6,
+    "speech_ratio": 0.176,
+    "silence_ratio": 0.824,
+    "transcript_present": true,
+    "speaker_known": true,
+    "distress_cues": [
+      "speech_present",
+      "speaker_identified"
+    ]
+  },
+  "transcript": {
+    "text": "Sorry, I pressed it by mistake.",
+    "language": "english"
+  },
+  "transcript_analysis": {
+    "incident": "unknown",
+    "symptoms": [],
+    "keywords": []
+  },
+  "false_alarm": {
+    "false_alarm": true,
+    "confidence": 0.91,
+    "reason": "accidental press detected"
+  },
+  "triage": {
+    "incident": "false_alarm",
+    "urgency": "FALSE_ALARM",
+    "confidence": 0.91,
+    "recommended_action": "log the alert, confirm resident safety, and close the case",
+    "rationale": "False-alarm cues outweigh emergency evidence."
+  },
+  "errors": [],
+  "generated_at": "2026-03-13T00:00:00+00:00"
+}
