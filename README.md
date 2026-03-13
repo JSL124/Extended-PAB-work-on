@@ -62,7 +62,7 @@ pab-ai-triage/
 3. Use pyannote speaker embeddings to identify the resident.
 4. Transcribe the audio with OpenAI `gpt-4o-mini-transcribe`.
 5. Translate the transcript to English for normalized downstream reasoning.
-6. Extract incident, symptoms, and keywords from the analysis transcript with an LLM-backed analyzer.
+6. Extract incident, symptoms, and keywords from the analysis transcript with an LLM-backed analyzer, then normalize symptom phrases into canonical labels.
 7. Build transcript-first context from speech ratio, silence ratio, transcript presence, and speaker status.
 8. Detect likely false alarms with an LLM-first detector plus heuristic fallback.
 9. If not a false alarm, use `gpt-5-mini` by default for urgency reasoning.
@@ -172,7 +172,7 @@ streamlit run dashboard/app.py
 The dashboard shows:
 
 - speaker identity and confidence
-- original transcript, translated English transcript, and detected language
+- original transcript, translated English transcript, detected language, and normalized symptom signals
 - transcript-derived audio context
 - false alarm status
 - urgency level and recommended action
@@ -202,7 +202,7 @@ The dashboard shows:
     "silence_ratio": 0.48,
     "transcript_present": true,
     "speaker_known": true,
-    "distress_cues": ["incident:fall", "symptom:leg pain", "keyword:slipped", "speech_present", "speaker_identified"]
+    "distress_cues": ["incident:fall", "symptom:leg pain", "normalized_symptom:leg_pain", "keyword:slipped", "speech_present", "speaker_identified"]
   },
   "transcript": {
     "text": "我在浴室滑倒了，起不来了，我的腿很痛。",
@@ -214,6 +214,7 @@ The dashboard shows:
   "transcript_analysis": {
     "incident": "fall",
     "symptoms": ["leg pain"],
+    "normalized_symptoms": ["leg_pain"],
     "keywords": ["slipped", "pain", "bathroom", "floor"]
   },
   "false_alarm": {
@@ -241,6 +242,7 @@ Additional example reports are included in:
 ## Implementation Notes
 
 - Non-verbal audio event detection is removed from the active pipeline; triage is transcript-and-context centered.
+- Symptom phrases are normalized into canonical labels such as `chest_discomfort`, `generalized_pain`, and `head_pain` for more stable downstream reasoning.
 - False alarm detection runs before LLM triage and now uses an LLM-first structured JSON pass with heuristic fallback.
 - The LLM is responsible for final urgency reasoning.
 - All public outputs are structured JSON or Pydantic-backed JSON payloads.
@@ -254,7 +256,7 @@ Additional example reports are included in:
 - `speaker/identify.py`: embedding extraction and cosine-similarity speaker matching
 - `triage/context_builder.py`: transcript-first context features for downstream reasoning
 - `speech/transcribe.py`: OpenAI transcription client
-- `speech/transcript_analysis.py`: LLM-backed incident, symptom, and keyword extraction with rule-based fallback
+- `speech/transcript_analysis.py`: LLM-backed incident, symptom, and keyword extraction with rule-based fallback and canonical symptom normalization
 - `triage/false_alarm_detector.py`: LLM-first false alarm detection with heuristic fallback
 - `triage/llm_triage.py`: OpenAI GPT structured triage reasoning
 - `pipeline/main_pipeline.py`: orchestration and JSON report export
