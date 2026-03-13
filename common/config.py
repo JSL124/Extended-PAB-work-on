@@ -34,6 +34,7 @@ class Settings:
     openai_transcription_model: str
     openai_translation_model: str
     openai_transcript_analysis_model: str
+    openai_false_alarm_model: str
     openai_triage_model: str
     transcription_prompt: str
 
@@ -68,6 +69,7 @@ class Settings:
             ),
             openai_translation_model=os.getenv("OPENAI_TRANSLATION_MODEL", "gpt-4.1-mini"),
             openai_transcript_analysis_model=os.getenv("OPENAI_TRANSCRIPT_ANALYSIS_MODEL", "gpt-4.1-mini"),
+            openai_false_alarm_model=os.getenv("OPENAI_FALSE_ALARM_MODEL", "gpt-4.1-mini"),
             openai_triage_model=os.getenv("OPENAI_TRIAGE_MODEL", "gpt-5-mini"),
             transcription_prompt=os.getenv(
                 "OPENAI_TRANSCRIPTION_PROMPT",

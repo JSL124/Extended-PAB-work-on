@@ -1,9 +1,12 @@
-"""Heuristic false alarm detector that compares false-alarm and emergency evidence."""
+"""LLM-first false alarm detector with heuristic fallback."""
 
 from __future__ import annotations
 
+import json
+import logging
 import re
 
+from common.config import Settings
 from common.schemas import (
     AudioContextResult,
     FalseAlarmResult,
@@ -11,6 +14,8 @@ from common.schemas import (
     TranscriptAnalysisResult,
     TranscriptResult,
 )
+
+logger = logging.getLogger(__name__)
 
 FALSE_ALARM_PATTERNS: dict[str, tuple[str, ...]] = {
     "accidental press detected": (
@@ -39,6 +44,18 @@ FALSE_ALARM_PATTERNS: dict[str, tuple[str, ...]] = {
 class FalseAlarmDetector:
     """Assess whether the alert is likely a non-emergency false alarm."""
 
+    def __init__(self, settings: Settings | None = None) -> None:
+        self.settings = settings or Settings.from_env()
+        self._client = None
+
+        if self.settings.openai_api_key:
+            try:
+                from openai import OpenAI
+            except ImportError:
+                logger.warning("openai package not available; false alarm detector will use heuristics")
+            else:
+                self._client = OpenAI(api_key=self.settings.openai_api_key)
+
     def detect(
         self,
         transcript: TranscriptResult,
@@ -48,7 +65,88 @@ class FalseAlarmDetector:
         speech_segments: list[tuple[float, float]],
         audio_duration_seconds: float,
     ) -> FalseAlarmResult:
-        """Compare false-alarm evidence against emergency evidence."""
+        """Run LLM false-alarm detection, then fall back to heuristics if needed."""
+        if self._client is not None:
+            try:
+                return self._detect_with_llm(
+                    transcript=transcript,
+                    transcript_analysis=transcript_analysis,
+                    audio_context=audio_context,
+                    speaker=speaker,
+                    speech_segments=speech_segments,
+                    audio_duration_seconds=audio_duration_seconds,
+                )
+            except Exception as exc:
+                logger.exception("LLM false alarm detection failed")
+                logger.warning("Falling back to heuristic false alarm detection: %s", exc)
+
+        return self._detect_with_heuristics(
+            transcript=transcript,
+            transcript_analysis=transcript_analysis,
+            audio_context=audio_context,
+            speaker=speaker,
+            speech_segments=speech_segments,
+            audio_duration_seconds=audio_duration_seconds,
+        )
+
+    def _detect_with_llm(
+        self,
+        transcript: TranscriptResult,
+        transcript_analysis: TranscriptAnalysisResult,
+        audio_context: AudioContextResult,
+        speaker: SpeakerIdentificationResult,
+        speech_segments: list[tuple[float, float]],
+        audio_duration_seconds: float,
+    ) -> FalseAlarmResult:
+        evidence = {
+            "speaker": speaker.model_dump(),
+            "transcript": transcript.model_dump(),
+            "transcript_analysis": transcript_analysis.model_dump(),
+            "audio_context": audio_context.model_dump(),
+            "speech_segments": speech_segments,
+            "audio_duration_seconds": audio_duration_seconds,
+        }
+
+        system_prompt = (
+            "You are a false-alarm detection assistant for elderly personal alert button calls. "
+            "Decide whether the alert is most likely a non-emergency false alarm. "
+            "Focus on accidental button presses, device tests, loneliness/check-in calls, and no-speech/silence. "
+            "Be conservative: if the resident may be in distress, do not mark it as a false alarm. "
+            "Use transcript.analysis_text as the primary normalized text. Return only structured output."
+        )
+
+        logger.info(
+            "Running OpenAI false alarm detection with model %s",
+            self.settings.openai_false_alarm_model,
+        )
+        completion = self._client.chat.completions.parse(
+            model=self.settings.openai_false_alarm_model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": (
+                        "Analyze the following alert evidence as JSON and determine whether it is a false alarm.\n"
+                        f"{json.dumps(evidence, ensure_ascii=False, indent=2)}"
+                    ),
+                },
+            ],
+            response_format=FalseAlarmResult,
+        )
+        parsed = completion.choices[0].message.parsed
+        if parsed is None:
+            raise RuntimeError("OpenAI false alarm detection did not return a structured response.")
+        return parsed
+
+    def _detect_with_heuristics(
+        self,
+        transcript: TranscriptResult,
+        transcript_analysis: TranscriptAnalysisResult,
+        audio_context: AudioContextResult,
+        speaker: SpeakerIdentificationResult,
+        speech_segments: list[tuple[float, float]],
+        audio_duration_seconds: float,
+    ) -> FalseAlarmResult:
         text = transcript.analysis_text.lower().strip()
 
         cue_scores: dict[str, float] = {}

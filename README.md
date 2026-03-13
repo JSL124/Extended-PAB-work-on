@@ -1,6 +1,6 @@
 # pab-ai-triage
 
-`pab-ai-triage` is a modular Python project for emergency triage from Personal Alert Button (PAB) audio. It processes a resident recording, identifies the likely speaker, extracts transcript and speech-presence context, filters likely false alarms, and produces a structured report for operators.
+`pab-ai-triage` is a modular Python project for emergency triage from Personal Alert Button (PAB) audio. It processes a resident recording, identifies the likely speaker, transcribes and translates speech to English for normalized analysis, filters likely false alarms, and produces a structured report for operators.
 
 ## Architecture
 
@@ -61,11 +61,12 @@ pab-ai-triage/
 2. Detect speech segments with VAD.
 3. Use pyannote speaker embeddings to identify the resident.
 4. Transcribe the audio with OpenAI `gpt-4o-mini-transcribe`.
-5. Extract incident, symptoms, and keywords from the transcript.
-6. Build transcript-first context from speech ratio, silence ratio, transcript presence, and speaker status.
-7. Detect likely false alarms before triage.
-8. If not a false alarm, use `gpt-5-mini` by default for urgency reasoning.
-9. Return a structured JSON incident report for operators and the dashboard.
+5. Translate the transcript to English for normalized downstream reasoning.
+6. Extract incident, symptoms, and keywords from the analysis transcript with an LLM-backed analyzer.
+7. Build transcript-first context from speech ratio, silence ratio, transcript presence, and speaker status.
+8. Detect likely false alarms with an LLM-first detector plus heuristic fallback.
+9. If not a false alarm, use `gpt-5-mini` by default for urgency reasoning.
+10. Return a structured JSON incident report for operators and the dashboard.
 
 ## Installation
 
@@ -94,6 +95,9 @@ Required variables:
 Optional variables:
 
 - `OPENAI_TRANSCRIPTION_MODEL`: defaults to `gpt-4o-mini-transcribe`
+- `OPENAI_TRANSLATION_MODEL`: defaults to `gpt-4.1-mini`
+- `OPENAI_TRANSCRIPT_ANALYSIS_MODEL`: defaults to `gpt-4.1-mini`
+- `OPENAI_FALSE_ALARM_MODEL`: defaults to `gpt-4.1-mini`
 - `OPENAI_TRIAGE_MODEL`: defaults to `gpt-5-mini`
 - `PAB_NOISE_REDUCTION`: `true` or `false`
 - `PAB_VAD_AGGRESSIVENESS`: `0` to `3`
@@ -168,7 +172,7 @@ streamlit run dashboard/app.py
 The dashboard shows:
 
 - speaker identity and confidence
-- transcript and detected language
+- original transcript, translated English transcript, and detected language
 - transcript-derived audio context
 - false alarm status
 - urgency level and recommended action
@@ -201,8 +205,11 @@ The dashboard shows:
     "distress_cues": ["incident:fall", "symptom:leg pain", "keyword:slipped", "speech_present", "speaker_identified"]
   },
   "transcript": {
-    "text": "I slipped in the bathroom and I cannot get up. My leg hurts.",
-    "language": "english"
+    "text": "我在浴室滑倒了，起不来了，我的腿很痛。",
+    "translated_text": "I slipped in the bathroom and I cannot get up. My leg hurts.",
+    "language": "chinese",
+    "analysis_text": "I slipped in the bathroom and I cannot get up. My leg hurts.",
+    "analysis_language": "english"
   },
   "transcript_analysis": {
     "incident": "fall",
@@ -234,7 +241,7 @@ Additional example reports are included in:
 ## Implementation Notes
 
 - Non-verbal audio event detection is removed from the active pipeline; triage is transcript-and-context centered.
-- False alarm detection runs before LLM triage.
+- False alarm detection runs before LLM triage and now uses an LLM-first structured JSON pass with heuristic fallback.
 - The LLM is responsible for final urgency reasoning.
 - All public outputs are structured JSON or Pydantic-backed JSON payloads.
 - The pipeline is resilient: module failures are recorded in the report `errors` field.
@@ -247,8 +254,8 @@ Additional example reports are included in:
 - `speaker/identify.py`: embedding extraction and cosine-similarity speaker matching
 - `triage/context_builder.py`: transcript-first context features for downstream reasoning
 - `speech/transcribe.py`: OpenAI transcription client
-- `speech/transcript_analysis.py`: incident, symptom, and keyword extraction
-- `triage/false_alarm_detector.py`: false alarm comparison engine
+- `speech/transcript_analysis.py`: LLM-backed incident, symptom, and keyword extraction with rule-based fallback
+- `triage/false_alarm_detector.py`: LLM-first false alarm detection with heuristic fallback
 - `triage/llm_triage.py`: OpenAI GPT structured triage reasoning
 - `pipeline/main_pipeline.py`: orchestration and JSON report export
 - `dashboard/app.py`: Streamlit operator interface
@@ -256,5 +263,5 @@ Additional example reports are included in:
 ## Known Operational Requirements
 
 - `pyannote.audio` may require accepting model access terms on Hugging Face.
-- `YAMNet` downloads model assets through TensorFlow Hub on first use.
-- OpenAI transcription and triage require network access and a valid API key.
+- `YAMNet` remains in the repository but is not part of the active runtime pipeline.
+- OpenAI transcription, translation, transcript analysis, false alarm detection, and triage require network access and a valid API key.

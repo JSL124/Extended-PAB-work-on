@@ -38,7 +38,7 @@ class EmergencyTriagePipeline:
         self.settings.ensure_runtime_dirs()
         self.speaker_identifier = SpeakerIdentifier(self.settings)
         self.transcriber = OpenAITranscriber(self.settings)
-        self.false_alarm_detector = FalseAlarmDetector()
+        self.false_alarm_detector = FalseAlarmDetector(self.settings)
         self.llm_triage = LLMTriageEngine(self.settings)
 
     def run(self, audio_path: str | Path) -> EmergencyReport:
